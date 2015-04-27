@@ -23,7 +23,7 @@ COMM_CFLAGS = -Wall  -Wno-strict-aliasing -DLINUX64 -g -Wfloat-equal -rdynamic \
 # -Wconversion -Wsign-compare
 endif
 
-CXXFLAGS = $(COMM_CFLAGS) -std=c++11
+CXXFLAGS = $(COMM_CFLAGS)
 
 $(GTEST_ROOT)/configure:
 	@cd ./3rd;rm -Rf gtest;unzip gtest-1.7.0.zip;mv gtest-1.7.0 gtest;

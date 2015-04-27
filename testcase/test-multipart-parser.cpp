@@ -42,14 +42,11 @@ class multipartParam
     public:
         const char** bufs;
         int bufcnt;
+        const char* boundary;
         uint32_t expected_cksum;
     public:
-        multipartParam(const char** _bufs, int _bufcnt, uint32_t _expected_cksum):bufs(_bufs), bufcnt(_bufcnt), expected_cksum(_expected_cksum) {};
+        multipartParam(const char** _bufs, int _bufcnt, const char* _boundary, uint32_t _expected_cksum):bufs(_bufs), bufcnt(_bufcnt), boundary(_boundary), expected_cksum(_expected_cksum) {};
 };
-
-static int multipart_on_part_data(multipart_parser* p, const char *at, size_t length);
-
-struct multipart_parser_settings setting = { multipart_on_part_data, 0, 0, 0};
 
 class extractMultipartParamTest: public testing::TestWithParam<multipartParam> {
     protected:
@@ -58,13 +55,14 @@ class extractMultipartParamTest: public testing::TestWithParam<multipartParam> {
             bufused = 0;
             total_consumed = 0;
             buflen = 1024*1024;
-            parser = multipart_parser_create("iiILDVvvxS", strlen("iiILDVvvxS"), &setting);
-            ASSERT_NE(parser, (multipart_parser*)NULL);
+            parser = NULL;
             buf = (char*)malloc(buflen);
             ASSERT_NE(buf, (char*)NULL);
         }
         virtual void TearDown() {
-            multipart_parser_destroy(parser);
+            if(NULL != parser){
+                multipart_parser_destroy(parser);
+            }
             parser = NULL;
             free(buf);
             buf = NULL;
@@ -87,10 +85,14 @@ multipart_on_part_data(multipart_parser* p, const char *at, size_t length)
     return 0;
 }
 
+struct multipart_parser_settings setting = { multipart_on_part_data, 0, 0, 0};
+
 TEST_P(extractMultipartParamTest, extract_multipart)
 {
     size_t consumed = 0;
     multipartParam const & p = GetParam();
+    parser = multipart_parser_create(p.boundary, strlen(p.boundary), &setting);
+    ASSERT_NE(parser, (multipart_parser*)NULL);
     multipart_parser_set_data(parser, this);
     for(int i=0; i < p.bufcnt; i++){
         ASSERT_TRUE(bufused + strlen(p.bufs[i]) < buflen);
@@ -107,8 +109,17 @@ const char* array1[] = {"\r\n\r\n--iiIL",
                 "\nddddsasdfasd\r\n--iiILDVvvxS",
                 "\r\n\r\nddssioioioi",
                 "oia\r\n--iiILDVvvxS--\r\n"};
+const char* array2[] = {"\r\n----dd-",
+    "-dddewc--\r\n\r",
+    "\nddewdde-0.asdf--dd--",
+    "dddewc--\r\n----dd--dddewc--\r\nContent",
+    "-Type: asdfeee\r\nddewedf: ddew\r\n\r\nddweoio",
+    "sdf..meiowe\r\n----dd--d",
+    "ddewc----\r\n"};
 
-INSTANTIATE_TEST_CASE_P(checksumTest, extractMultipartParamTest, testing::Values(multipartParam(array1,5,2875688835u)));
+INSTANTIATE_TEST_CASE_P(checksumTest, extractMultipartParamTest, testing::Values(multipartParam(array1,5,"iiILDVvvxS",2875688835u),
+            multipartParam(array2, 7, "--dd--dddewc--", 1933708397)
+            ));
 
 int
 main(int argc, char** argv)
