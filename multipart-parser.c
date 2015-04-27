@@ -1,5 +1,8 @@
+#define _GNU_SOURCE
 #include "multipart-parser.h"
-
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 /*
  *      |-----bdpartlen---|
  *      \r\n--boundaryabcde
@@ -7,14 +10,14 @@
  *      bdpartptr
  */
 
-typedef enum
+enum
 {
     MULTIPART_BEGIN,
     PART_BEGIN,
     PARTDATA_BEGIN,
     PARTDATA_ENDING,
     BODY_END,
-}
+};
 
 typedef struct multipart_parser 
 {
@@ -25,12 +28,28 @@ typedef struct multipart_parser
     char buf[0];
 }multipart_parser;
 
+static const char* 
+util_memfindchrs(const char* ptr, size_t len, const char* chrs)
+{
+    int i = 0;
+    int j = 0;
+    size_t chrslen = strlen(chrs);
+    for(i = 0; i < len; i++){
+        for(j = 0; j < chrslen; j++){
+            if(ptr[i] == chrs[j]){
+                return ptr + i;
+            }
+        }
+    }
+    return NULL;
+}
+
 multipart_parser* 
 multipart_parser_create(const char *boundary, size_t boundary_len, const multipart_parser_settings* settings)
 {
     size_t bdpartlen = 4 + boundary_len;
     multipart_parser* parser = (multipart_parser*)malloc(sizeof(multipart_parser) + bdpartlen);
-    if(unlikely(NULL == parser)){
+    if(NULL == parser){
         return NULL;
     }
     parser->setting = settings;
@@ -59,7 +78,7 @@ multipart_parser_execute(multipart_parser* p, const char *buf, size_t len)
             pin = memmem(curr, len, p->buf, p->bdpartlen);
             if(NULL == pin){
                 if(len >= p->bdpartlen){
-                    return len - p->bdtaillen;
+                    return len - p->bdpartlen;
                 }else{
                     return 0;
                 }
@@ -141,7 +160,8 @@ multipart_extract_boundary(const char* content_type, size_t len, const char** bo
     if(NULL == start){
         return -1;
     }
-    const char* endptr = util_memfindchrs(start + flaglen, len - flaglen - (start - content_type), " \r\n;");
+    start += flaglen;
+    const char* endptr = util_memfindchrs(start, len - (start - content_type), " \r\n;");
     if(NULL == endptr){
         endptr = content_type + len;
     }

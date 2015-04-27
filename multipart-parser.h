@@ -1,5 +1,6 @@
 #ifndef MULTIPART_PARSER_H_
 #define MULTIPART_PARSER_H_
+#include <stddef.h>
 
 typedef struct multipart_parser multipart_parser;
 typedef struct multipart_parser_settings multipart_parser_settings;
